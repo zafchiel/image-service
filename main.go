@@ -3,6 +3,8 @@ package main
 import (
 	"fmt"
 	"net/http"
+
+	"github.com/zafchiel/image-service/middleware"
 )
 
 func main() {
@@ -11,7 +13,7 @@ func main() {
 
 	server := http.Server{
 		Addr:    ":8080",
-		Handler: router,
+		Handler: middleware.Logger(router),
 	}
 
 	fmt.Println("Server is running on port 8080")
