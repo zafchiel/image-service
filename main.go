@@ -1,7 +1,6 @@
 package main
 
 import (
-	"crypto/rand"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
@@ -25,6 +24,7 @@ func main() {
 	router.HandleFunc("POST /upload", uploadImage)
 
 	router.Handle("GET /images/", http.StripPrefix("/images/", http.FileServer(http.Dir("images"))))
+	router.HandleFunc("GET /image/{id}", getImage)
 
 	server := http.Server{
 		Addr:    port,
@@ -39,15 +39,6 @@ func main() {
 
 func hello(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprint(w, "Hello, World!")
-}
-
-func generateID(length int) (string, error) {
-	bytes := make([]byte, length)
-	_, err := rand.Read(bytes)
-	if err != nil {
-		return "", err
-	}
-	return hex.EncodeToString(bytes), nil
 }
 
 func uploadImage(w http.ResponseWriter, r *http.Request) {
@@ -103,7 +94,7 @@ func uploadImage(w http.ResponseWriter, r *http.Request) {
 		}{
 			ID:      fileHash[:8], // Use first 8 characters of hash as ID
 			Message: "File already exists",
-			URL:     fmt.Sprintf("http://localhost:8080/images/%s%s", fileHash, fileExt),
+			URL:     fmt.Sprintf("http://localhost:8080/image/%s", fileHash[:8]),
 		}
 
 		w.Header().Set("Content-Type", "application/json")
@@ -133,7 +124,7 @@ func uploadImage(w http.ResponseWriter, r *http.Request) {
 	}{
 		ID:      fileHash[:8],
 		Message: fmt.Sprintf("File %s uploaded successfully", header.Filename),
-		URL:     fmt.Sprintf("http://localhost:8080/images/%s", newFilename),
+		URL:     fmt.Sprintf("http://localhost:8080/image/%s", fileHash[:8]),
 	}
 
 	w.Header().Set("Content-Type", "application/json")
@@ -142,4 +133,31 @@ func uploadImage(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Failed to encode response", http.StatusInternalServerError)
 		return
 	}
+}
+
+func getImage(w http.ResponseWriter, r *http.Request) {
+	id := r.PathValue("id")
+	if len(id) != 8 {
+		http.Error(w, "Invalid image ID", http.StatusBadRequest)
+		return
+	}
+
+	files, err := filepath.Glob("images/" + id + "*")
+	if err != nil {
+		http.Error(w, "Failed to find file", http.StatusInternalServerError)
+		return
+	}
+
+	if len(files) == 0 {
+		http.Error(w, "Image not found", http.StatusNotFound)
+		return
+	}
+
+	if len(files) > 1 {
+		http.Error(w, "Multiple images found", http.StatusInternalServerError)
+		return
+	}
+
+	filename := filepath.Base(files[0])
+	http.Redirect(w, r, "/images/"+filename, http.StatusFound)
 }
