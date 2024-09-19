@@ -20,10 +20,10 @@ const (
 
 func main() {
 	router := http.NewServeMux()
-	router.HandleFunc("/", hello)
+	router.HandleFunc("GET /", hello)
 	router.HandleFunc("POST /upload", uploadImage)
 
-	router.Handle("/images/", http.StripPrefix("/images/", http.FileServer(http.Dir("images"))))
+	router.Handle("GET /images/", http.StripPrefix("/images/", http.FileServer(http.Dir("images"))))
 
 	server := http.Server{
 		Addr:    port,
@@ -40,10 +40,13 @@ func hello(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprint(w, "Hello, World!")
 }
 
-func generateID(length int) string {
+func generateID(length int) (string, error) {
 	bytes := make([]byte, length)
-	rand.Read(bytes)
-	return hex.EncodeToString(bytes)
+	_, err := rand.Read(bytes)
+	if err != nil {
+		return "", err
+	}
+	return hex.EncodeToString(bytes), nil
 }
 
 func uploadImage(w http.ResponseWriter, r *http.Request) {
@@ -75,7 +78,12 @@ func uploadImage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	id := generateID(4) // Generate an 8-byte (16 character) ID
+	id, err := generateID(4) // Generate an 8-byte (16 character) ID
+	if err != nil {
+		http.Error(w, "Failed to generate ID", http.StatusInternalServerError)
+		return
+	}
+
 	fileExt := filepath.Ext(header.Filename)
 	newFilename := id + fileExt
 
