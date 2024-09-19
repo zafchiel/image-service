@@ -3,6 +3,7 @@ package main
 import (
 	"crypto/rand"
 	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
@@ -21,6 +22,8 @@ func main() {
 	router := http.NewServeMux()
 	router.HandleFunc("/", hello)
 	router.HandleFunc("POST /upload", uploadImage)
+
+	router.Handle("/images/", http.StripPrefix("/images/", http.FileServer(http.Dir("images"))))
 
 	server := http.Server{
 		Addr:    port,
@@ -64,11 +67,15 @@ func uploadImage(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if header.Size > maxUploadSize {
-		http.Error(w, fmt.Sprintf("The uploaded image is too big: %v. Please upload an image up to %v", header.Size, maxUploadSize), http.StatusBadRequest)
+		http.Error(
+			w,
+			fmt.Sprintf("The uploaded image is too big: %v. Please upload an image up to %v", header.Size, maxUploadSize),
+			http.StatusBadRequest,
+		)
 		return
 	}
 
-	id := generateID(8) // Generate an 8-byte (16 character) ID
+	id := generateID(4) // Generate an 8-byte (16 character) ID
 	fileExt := filepath.Ext(header.Filename)
 	newFilename := id + fileExt
 
@@ -85,5 +92,20 @@ func uploadImage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	fmt.Fprintf(w, "File %s uploaded successfully. Size: %d bytes, Type: %s\n", header.Filename, header.Size, contentType)
+	res := struct {
+		ID      string `json:"id"`
+		Message string `json:"message"`
+		URL     string `json:"url"`
+	}{
+		ID:      id,
+		Message: fmt.Sprintf("File %s uploaded successfully", header.Filename),
+		URL:     fmt.Sprintf("http://localhost:8080/images/%s", newFilename),
+	}
+
+	if err := json.NewEncoder(w).Encode(res); err != nil {
+		http.Error(w, "Failed to encode response", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
 }
