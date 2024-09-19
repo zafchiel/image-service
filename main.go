@@ -110,10 +110,10 @@ func uploadImage(w http.ResponseWriter, r *http.Request) {
 		URL:     fmt.Sprintf("http://localhost:8080/images/%s", newFilename),
 	}
 
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusCreated)
 	if err := json.NewEncoder(w).Encode(res); err != nil {
 		http.Error(w, "Failed to encode response", http.StatusInternalServerError)
 		return
 	}
-
-	w.Header().Set("Content-Type", "application/json")
 }
