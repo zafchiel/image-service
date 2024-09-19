@@ -1,10 +1,13 @@
 package main
 
 import (
+	"crypto/rand"
+	"encoding/hex"
 	"fmt"
 	"io"
 	"net/http"
 	"os"
+	"path/filepath"
 
 	"github.com/zafchiel/image-service/middleware"
 )
@@ -34,6 +37,12 @@ func hello(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprint(w, "Hello, World!")
 }
 
+func generateID(length int) string {
+	bytes := make([]byte, length)
+	rand.Read(bytes)
+	return hex.EncodeToString(bytes)
+}
+
 func uploadImage(w http.ResponseWriter, r *http.Request) {
 	// Parse the multipart form data
 	if err := r.ParseMultipartForm(maxUploadSize); err != nil {
@@ -59,7 +68,11 @@ func uploadImage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	destination, err := os.Create("images/" + header.Filename)
+	id := generateID(8) // Generate an 8-byte (16 character) ID
+	fileExt := filepath.Ext(header.Filename)
+	newFilename := id + fileExt
+
+	destination, err := os.Create("images/" + newFilename)
 	if err != nil {
 		http.Error(w, "Failed to create file on server", http.StatusInternalServerError)
 		return
