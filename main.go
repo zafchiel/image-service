@@ -2,6 +2,7 @@ package main
 
 import (
 	"crypto/rand"
+	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
@@ -78,15 +79,40 @@ func uploadImage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	id, err := generateID(4) // Generate an 8-byte (16 character) ID
+	fileExt := filepath.Ext(header.Filename)
+
+	// Read file into memory
+	fileBytes, err := io.ReadAll(file)
 	if err != nil {
-		http.Error(w, "Failed to generate ID", http.StatusInternalServerError)
+		http.Error(w, "Failed to read file", http.StatusInternalServerError)
 		return
 	}
 
-	fileExt := filepath.Ext(header.Filename)
-	newFilename := id + fileExt
+	// Generate a SHA-256 hash of the file
+	hash := sha256.Sum256(fileBytes)
+	fileHash := hex.EncodeToString(hash[:])
 
+	// Check if a file with this hash already exists
+	existingFilePath := filepath.Join("images", fileHash+fileExt)
+	if _, err := os.Stat(existingFilePath); err == nil {
+		// File already exists, return its information
+		res := struct {
+			ID      string `json:"id"`
+			Message string `json:"message"`
+			URL     string `json:"url"`
+		}{
+			ID:      fileHash[:8], // Use first 8 characters of hash as ID
+			Message: "File already exists",
+			URL:     fmt.Sprintf("http://localhost:8080/images/%s%s", fileHash, fileExt),
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		json.NewEncoder(w).Encode(res)
+		return
+	}
+
+	newFilename := fileHash + fileExt
 	destination, err := os.Create("images/" + newFilename)
 	if err != nil {
 		http.Error(w, "Failed to create file on server", http.StatusInternalServerError)
@@ -105,7 +131,7 @@ func uploadImage(w http.ResponseWriter, r *http.Request) {
 		Message string `json:"message"`
 		URL     string `json:"url"`
 	}{
-		ID:      id,
+		ID:      fileHash[:8],
 		Message: fmt.Sprintf("File %s uploaded successfully", header.Filename),
 		URL:     fmt.Sprintf("http://localhost:8080/images/%s", newFilename),
 	}
