@@ -109,7 +109,7 @@ func uploadImage(w http.ResponseWriter, r *http.Request) {
 	}
 	defer destination.Close()
 
-	_, err = io.Copy(destination, file)
+	_, err = destination.Write(fileBytes)
 	if err != nil {
 		http.Error(w, "Failed to save file on server", http.StatusInternalServerError)
 		return
