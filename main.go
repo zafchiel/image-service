@@ -22,8 +22,6 @@ func main() {
 	router := http.NewServeMux()
 	router.HandleFunc("GET /", hello)
 	router.HandleFunc("POST /upload", uploadImage)
-
-	router.Handle("GET /images/", http.StripPrefix("/images/", http.FileServer(http.Dir("images"))))
 	router.HandleFunc("GET /image/{id}", getImage)
 
 	server := http.Server{
@@ -159,5 +157,29 @@ func getImage(w http.ResponseWriter, r *http.Request) {
 	}
 
 	filename := filepath.Base(files[0])
-	http.Redirect(w, r, "/images/"+filename, http.StatusFound)
+	file, err := os.Open(files[0])
+	if err != nil {
+		http.Error(w, "Failed to open file", http.StatusInternalServerError)
+		return
+	}
+	defer file.Close()
+
+	var contentType string
+	switch filepath.Ext(filename) {
+	case ".jpg", ".jpeg":
+		contentType = "image/jpeg"
+	case ".png":
+		contentType = "image/png"
+	default:
+		http.Error(w, "Unsupported image format", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", contentType)
+
+	_, err = io.Copy(w, file)
+	if err != nil {
+		http.Error(w, "Failed to copy file to response writer", http.StatusInternalServerError)
+		return
+	}
 }
