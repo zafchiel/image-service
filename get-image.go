@@ -65,10 +65,16 @@ func getImage(w http.ResponseWriter, r *http.Request) {
 	switch format {
 	case JPG, JPEG:
 		w.Header().Set("Content-Type", "image/jpeg")
-		jpeg.Encode(w, resized, &jpeg.Options{Quality: 75})
+		if err := jpeg.Encode(w, resized, &jpeg.Options{Quality: 75}); err != nil {
+			http.Error(w, "Failed to encode image", http.StatusInternalServerError)
+			return
+		}
 	case PNG:
 		w.Header().Set("Content-Type", "image/png")
-		png.Encode(w, resized)
+		if err := png.Encode(w, resized); err != nil {
+			http.Error(w, "Failed to encode image", http.StatusInternalServerError)
+			return
+		}
 	default:
 		err := fmt.Sprintf("Unsupported image format: %s, use one of the following formats: %s", format, supportedFormats)
 		http.Error(w, err, http.StatusBadRequest)
