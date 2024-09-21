@@ -9,6 +9,9 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/anthonynsimon/bild/adjust"
+	"github.com/anthonynsimon/bild/blur"
+	"github.com/anthonynsimon/bild/effect"
 	"github.com/anthonynsimon/bild/imgio"
 	"github.com/anthonynsimon/bild/transform"
 )
@@ -52,10 +55,47 @@ func getImage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Apply effects based on query parameters
 	width, _ := strconv.Atoi(r.URL.Query().Get("width"))
 	height, _ := strconv.Atoi(r.URL.Query().Get("height"))
 
 	resized := transform.Resize(file, width, height, transform.Linear)
+
+	if blurRadius, err := strconv.ParseFloat(r.URL.Query().Get("blur"), 64); err == nil && blurRadius > 0 {
+		resized = blur.Gaussian(resized, blurRadius)
+	}
+
+	if brightness, err := strconv.ParseFloat(r.URL.Query().Get("brightness"), 64); err == nil {
+		resized = adjust.Brightness(resized, brightness)
+	}
+
+	if contrast, err := strconv.ParseFloat(r.URL.Query().Get("contrast"), 64); err == nil {
+		resized = adjust.Contrast(resized, contrast)
+	}
+
+	if r.URL.Query().Get("grayscale") == "true" {
+		resized = effect.Grayscale(resized)
+	}
+
+	if r.URL.Query().Get("sepia") == "true" {
+		resized = effect.Sepia(resized)
+	}
+
+	if r.URL.Query().Get("invert") == "true" {
+		resized = effect.Invert(resized)
+	}
+
+	if rotation, err := strconv.ParseFloat(r.URL.Query().Get("rotate"), 64); err == nil {
+		resized = transform.Rotate(resized, rotation, nil)
+	}
+
+	if r.URL.Query().Get("fliph") == "true" {
+		resized = transform.FlipH(resized)
+	}
+
+	if r.URL.Query().Get("flipv") == "true" {
+		resized = transform.FlipV(resized)
+	}
 
 	format := ImageFormat(r.URL.Query().Get("format"))
 	if format == "" {
