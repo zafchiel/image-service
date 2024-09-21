@@ -14,28 +14,63 @@ import (
 )
 
 type UploadResponse struct {
+	Error   string `json:"error"`
 	ID      string `json:"id"`
 	Message string `json:"message"`
 	URL     string `json:"url"`
 }
 
 func uploadImage(w http.ResponseWriter, r *http.Request) {
-	file, header, err := r.FormFile("image")
+	// Parse the multipart form data
+	err := r.ParseMultipartForm(maxUploadSize)
 	if err != nil {
-		http.Error(w, "No image file uploaded", http.StatusBadRequest)
+		http.Error(w, "Failed to parse multipart form", http.StatusBadRequest)
 		return
 	}
-	defer file.Close()
+
+	// Get the file headers for all uploaded files
+	files := r.MultipartForm.File["image"]
+	if len(files) == 0 {
+		http.Error(w, "No image files uploaded", http.StatusBadRequest)
+		return
+	}
+
+	// Process each uploaded file
+	var responses []UploadResponse
+	for _, fileHeader := range files {
+		file, err := fileHeader.Open()
+		if err != nil {
+			http.Error(w, fmt.Sprintf("Failed to open file: %v", err), http.StatusInternalServerError)
+			return
+		}
+		defer file.Close()
+
+		// Process the file (validate, save, etc.)
+		response, err := processUploadedFile(&file, fileHeader)
+		if err != nil {
+			responses = append(responses, UploadResponse{Error: err.Error()})
+			continue
+		}
+
+		responses = append(responses, response)
+	}
+
+	// Send response with all processed files
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(responses)
+
+}
+
+func processUploadedFile(file *multipart.File, header *multipart.FileHeader) (UploadResponse, error) {
 
 	if err := validateImage(header); err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
+		return UploadResponse{}, err
 	}
 
-	fileBytes, err := io.ReadAll(file)
+	fileBytes, err := io.ReadAll(*file)
 	if err != nil {
-		http.Error(w, "Failed to read file", http.StatusInternalServerError)
-		return
+		return UploadResponse{}, err
 	}
 
 	fileHash := generateFileHash(fileBytes)
@@ -43,24 +78,22 @@ func uploadImage(w http.ResponseWriter, r *http.Request) {
 	newFilename := fileHash + fileExt
 
 	if existingFile(fileHash, fileExt) {
-		sendResponse(w, UploadResponse{
+		return UploadResponse{
 			ID:      fileHash[:8],
 			Message: "File already exists",
 			URL:     fmt.Sprintf("http://localhost:8080/image/%s", fileHash[:8]),
-		}, http.StatusOK)
-		return
+		}, nil
 	}
 
 	if err := saveFile(fileBytes, newFilename); err != nil {
-		http.Error(w, "Failed to save file on server", http.StatusInternalServerError)
-		return
+		return UploadResponse{}, err
 	}
 
-	sendResponse(w, UploadResponse{
+	return UploadResponse{
 		ID:      fileHash[:8],
 		Message: fmt.Sprintf("File %s uploaded successfully", header.Filename),
 		URL:     fmt.Sprintf("http://localhost:8080/image/%s", fileHash[:8]),
-	}, http.StatusCreated)
+	}, nil
 }
 
 func validateImage(header *multipart.FileHeader) error {
