@@ -2,3 +2,4 @@ images/*
 assets/*
 mock/
 tmp/
+build/

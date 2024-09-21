@@ -140,9 +140,3 @@ func saveFile(fileBytes []byte, filename string) error {
 	_, err = destination.Write(fileBytes)
 	return err
 }
-
-func sendResponse(w http.ResponseWriter, response UploadResponse, status int) {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(status)
-	json.NewEncoder(w).Encode(response)
-}
