@@ -54,7 +54,7 @@ func uploadImage(w http.ResponseWriter, r *http.Request) {
 	fileHash := hex.EncodeToString(hash[:])
 
 	// Check if a file with this hash already exists
-	existingFilePath := filepath.Join("images", fileHash+fileExt)
+	existingFilePath := filepath.Join("assets", fileHash+fileExt)
 	if _, err := os.Stat(existingFilePath); err == nil {
 		// File already exists, return its information
 		res := struct {
@@ -74,7 +74,7 @@ func uploadImage(w http.ResponseWriter, r *http.Request) {
 	}
 
 	newFilename := fileHash + fileExt
-	destination, err := os.Create("images/" + newFilename)
+	destination, err := os.Create("assets/" + newFilename)
 	if err != nil {
 		http.Error(w, "Failed to create file on server", http.StatusInternalServerError)
 		return

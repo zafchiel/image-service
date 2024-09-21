@@ -1,13 +1,27 @@
 package main
 
 import (
+	"fmt"
+	"image/jpeg"
+	"image/png"
 	"net/http"
 	"path/filepath"
 	"strconv"
+	"strings"
 
 	"github.com/anthonynsimon/bild/imgio"
 	"github.com/anthonynsimon/bild/transform"
 )
+
+type ImageFormat string
+
+const (
+	JPG  ImageFormat = "jpg"
+	JPEG ImageFormat = "jpeg"
+	PNG  ImageFormat = "png"
+)
+
+var supportedFormats = []ImageFormat{JPG, JPEG, PNG}
 
 func getImage(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
@@ -16,7 +30,7 @@ func getImage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	files, err := filepath.Glob("images/" + id + "*")
+	files, err := filepath.Glob("assets/" + id + "*")
 	if err != nil {
 		http.Error(w, "Failed to find file", http.StatusInternalServerError)
 		return
@@ -43,17 +57,21 @@ func getImage(w http.ResponseWriter, r *http.Request) {
 
 	resized := transform.Resize(file, width, height, transform.Linear)
 
-	fileType := filepath.Ext(files[0])
-	var encoder imgio.Encoder
-	switch fileType {
-	case ".jpg", ".jpeg":
-		encoder = imgio.JPEGEncoder(75)
-	case ".png":
-		encoder = imgio.PNGEncoder()
-	default:
-		http.Error(w, "Unsupported image format", http.StatusInternalServerError)
-		return
+	format := ImageFormat(r.URL.Query().Get("format"))
+	if format == "" {
+		format = ImageFormat(strings.TrimPrefix(filepath.Ext(files[0]), "."))
 	}
 
-	encoder(w, resized)
+	switch format {
+	case JPG, JPEG:
+		w.Header().Set("Content-Type", "image/jpeg")
+		jpeg.Encode(w, resized, &jpeg.Options{Quality: 75})
+	case PNG:
+		w.Header().Set("Content-Type", "image/png")
+		png.Encode(w, resized)
+	default:
+		err := fmt.Sprintf("Unsupported image format: %s, use one of the following formats: %s", format, supportedFormats)
+		http.Error(w, err, http.StatusBadRequest)
+		return
+	}
 }
