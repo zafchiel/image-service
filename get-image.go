@@ -18,16 +18,6 @@ import (
 	"github.com/anthonynsimon/bild/transform"
 )
 
-type ImageFormat string
-
-const (
-	JPG  ImageFormat = "jpg"
-	JPEG ImageFormat = "jpeg"
-	PNG  ImageFormat = "png"
-)
-
-var supportedFormats = []ImageFormat{JPG, JPEG, PNG}
-
 func getImage(w http.ResponseWriter, r *http.Request) {
 	// Validate image ID
 	id := r.PathValue("id")

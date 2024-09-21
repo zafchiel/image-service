@@ -7,6 +7,16 @@ import (
 	"github.com/zafchiel/image-service/middleware"
 )
 
+type ImageFormat string
+
+const (
+	JPG  ImageFormat = "jpg"
+	JPEG ImageFormat = "jpeg"
+	PNG  ImageFormat = "png"
+)
+
+var supportedFormats = []ImageFormat{JPG, JPEG, PNG}
+
 const (
 	port          = ":8080"
 	maxUploadSize = 10 << 20 // 10 MB
