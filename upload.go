@@ -14,6 +14,7 @@ import (
 )
 
 type UploadResponse struct {
+	Success bool   `json:"success"`
 	Error   string `json:"error"`
 	ID      string `json:"id"`
 	Message string `json:"message"`
@@ -48,7 +49,7 @@ func uploadImage(w http.ResponseWriter, r *http.Request) {
 		// Process the file (validate, save, etc.)
 		response, err := processUploadedFile(&file, fileHeader)
 		if err != nil {
-			responses = append(responses, UploadResponse{Error: err.Error()})
+			responses = append(responses, UploadResponse{Success: false, Error: err.Error()})
 			continue
 		}
 
@@ -79,6 +80,7 @@ func processUploadedFile(file *multipart.File, header *multipart.FileHeader) (Up
 
 	if existingFile(fileHash, fileExt) {
 		return UploadResponse{
+			Success: true,
 			ID:      fileHash[:8],
 			Message: "File already exists",
 			URL:     fmt.Sprintf("http://localhost:8080/image/%s", fileHash[:8]),
@@ -90,6 +92,7 @@ func processUploadedFile(file *multipart.File, header *multipart.FileHeader) (Up
 	}
 
 	return UploadResponse{
+		Success: true,
 		ID:      fileHash[:8],
 		Message: fmt.Sprintf("File %s uploaded successfully", header.Filename),
 		URL:     fmt.Sprintf("http://localhost:8080/image/%s", fileHash[:8]),
