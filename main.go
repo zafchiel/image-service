@@ -27,6 +27,7 @@ func main() {
 	router.HandleFunc("GET /", hello)
 	router.HandleFunc("POST /upload", uploadImage)
 	router.HandleFunc("GET /image/{id}", getImage)
+	router.Handle("GET /docs/", http.StripPrefix("/docs/", http.FileServer(http.Dir("docs"))))
 
 	server := http.Server{
 		Addr:    port,
