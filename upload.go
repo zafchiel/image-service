@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strings"
 )
 
 type UploadResponse struct {
@@ -67,7 +68,7 @@ func validateImage(header *multipart.FileHeader) error {
 		return fmt.Errorf("the uploaded image is too big: %v. Please upload an image up to %v", header.Size, maxUploadSize)
 	}
 
-	contentType := ImageFormat(header.Header.Get("Content-Type"))
+	contentType := ImageFormat(strings.Split(header.Header.Get("Content-Type"), "/")[1])
 	var format ImageFormat
 	for _, f := range supportedFormats {
 		if f == contentType {
