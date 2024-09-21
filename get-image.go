@@ -1,14 +1,12 @@
 package main
 
 import (
-	"fmt"
-	"image"
-	"image/jpeg"
-	"image/png"
 	"net/http"
-	"os"
 	"path/filepath"
 	"strconv"
+
+	"github.com/anthonynsimon/bild/imgio"
+	"github.com/anthonynsimon/bild/transform"
 )
 
 func getImage(w http.ResponseWriter, r *http.Request) {
@@ -34,59 +32,28 @@ func getImage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	file, err := os.Open(files[0])
+	file, err := imgio.Open(files[0])
 	if err != nil {
 		http.Error(w, "Failed to open file", http.StatusInternalServerError)
 		return
 	}
-	defer file.Close()
 
 	width, _ := strconv.Atoi(r.URL.Query().Get("width"))
 	height, _ := strconv.Atoi(r.URL.Query().Get("height"))
-	fmt.Printf("width: %d, height: %d\n", width, height)
 
-	img, format, err := image.Decode(file)
-	if err != nil {
-		http.Error(w, "Failed to decode image", http.StatusInternalServerError)
-		return
-	}
+	resized := transform.Resize(file, width, height, transform.Linear)
 
-	if width > 0 || height > 0 {
-		img = resize(img, width, height)
-	}
-
-	switch format {
-	case "jpeg":
-		err = jpeg.Encode(w, img, &jpeg.Options{Quality: 75})
-		w.Header().Set("Content-Type", "image/jpeg")
-	case "png":
-		err = png.Encode(w, img)
-		w.Header().Set("Content-Type", "image/png")
+	fileType := filepath.Ext(files[0])
+	var encoder imgio.Encoder
+	switch fileType {
+	case ".jpg", ".jpeg":
+		encoder = imgio.JPEGEncoder(75)
+	case ".png":
+		encoder = imgio.PNGEncoder()
 	default:
 		http.Error(w, "Unsupported image format", http.StatusInternalServerError)
 		return
 	}
 
-	if err != nil {
-		http.Error(w, "Failed to encode image", http.StatusInternalServerError)
-		return
-	}
-}
-
-func resize(img image.Image, width, height int) image.Image {
-	if width == 0 {
-		width = img.Bounds().Dx() * height / img.Bounds().Dy()
-	}
-	if height == 0 {
-		height = img.Bounds().Dy() * width / img.Bounds().Dx()
-	}
-	newImg := image.NewRGBA(image.Rect(0, 0, width, height))
-	for y := 0; y < height; y++ {
-		for x := 0; x < width; x++ {
-			srcX := x * img.Bounds().Dx() / width
-			srcY := y * img.Bounds().Dy() / height
-			newImg.Set(x, y, img.At(srcX, srcY))
-		}
-	}
-	return newImg
+	encoder(w, resized)
 }
