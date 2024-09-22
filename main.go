@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"net/http"
+	"time"
 
 	"github.com/zafchiel/image-service/middleware"
 )
@@ -29,9 +30,15 @@ func main() {
 	router.HandleFunc("GET /image/{id}", getImage)
 	router.Handle("GET /docs/", http.StripPrefix("/docs/", http.FileServer(http.Dir("docs"))))
 
+	mdStack := middleware.Stack(
+		middleware.Logger,
+		// 10 requests per 10 seconds
+		middleware.NewRateLimiter(10, time.Second*10).Limit,
+	)
+
 	server := http.Server{
 		Addr:    port,
-		Handler: middleware.Logger(router),
+		Handler: mdStack(router),
 	}
 
 	fmt.Println("Server is running on port", port)
