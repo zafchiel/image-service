@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"net/http"
+	"os"
 	"time"
 
 	"github.com/zafchiel/image-service/middleware"
@@ -18,11 +19,6 @@ const (
 
 var supportedFormats = []ImageFormat{JPG, JPEG, PNG}
 
-const (
-	port          = ":8080"
-	maxUploadSize = 10 << 20 // 10 MB
-)
-
 func main() {
 	router := http.NewServeMux()
 	router.HandleFunc("GET /", hello)
@@ -35,6 +31,11 @@ func main() {
 		// 10 requests per 10 seconds
 		middleware.NewRateLimiter(10, time.Second*10).Limit,
 	)
+
+	port := os.Getenv("PORT")
+	if port == "" {
+		port = ":8080"
+	}
 
 	server := http.Server{
 		Addr:    port,

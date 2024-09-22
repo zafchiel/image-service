@@ -21,6 +21,8 @@ type UploadResponse struct {
 	URL     string `json:"url"`
 }
 
+var maxUploadSize int64 = 10 << 20 // 10 MB
+
 func uploadImage(w http.ResponseWriter, r *http.Request) {
 	// Parse the multipart form data
 	err := r.ParseMultipartForm(maxUploadSize)
