@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/zafchiel/image-service/middleware"
+	bolt "go.etcd.io/bbolt"
 )
 
 type ImageFormat string
@@ -18,8 +19,30 @@ const (
 )
 
 var supportedFormats = []ImageFormat{JPG, JPEG, PNG}
+var db *bolt.DB
 
 func main() {
+	var err error
+	db, err = bolt.Open("image.db", 0600, &bolt.Options{Timeout: 1 * time.Second})
+	if err != nil {
+		fmt.Println("Error opening database:", err)
+		return
+	}
+	defer db.Close()
+
+	// Create the bucket if it doesn't exist
+	err = db.Update(func(tx *bolt.Tx) error {
+		_, err := tx.CreateBucketIfNotExists([]byte("images"))
+		if err != nil {
+			return fmt.Errorf("error creating bucket: %s", err)
+		}
+		return nil
+	})
+	if err != nil {
+		fmt.Println("Error creating bucket:", err)
+		return
+	}
+
 	router := http.NewServeMux()
 	router.HandleFunc("GET /", hello)
 	router.HandleFunc("POST /upload", uploadImage)

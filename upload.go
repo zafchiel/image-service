@@ -4,6 +4,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"mime/multipart"
@@ -11,6 +12,8 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+
+	bolt "go.etcd.io/bbolt"
 )
 
 type UploadResponse struct {
@@ -55,7 +58,7 @@ func uploadImage(w http.ResponseWriter, r *http.Request) {
 			continue
 		}
 
-		responses = append(responses, response)
+		responses = append(responses, *response)
 	}
 
 	// Send response with all processed files
@@ -65,15 +68,14 @@ func uploadImage(w http.ResponseWriter, r *http.Request) {
 
 }
 
-func processUploadedFile(file *multipart.File, header *multipart.FileHeader) (UploadResponse, error) {
-
+func processUploadedFile(file *multipart.File, header *multipart.FileHeader) (*UploadResponse, error) {
 	if err := validateImage(header); err != nil {
-		return UploadResponse{}, err
+		return nil, err
 	}
 
 	fileBytes, err := io.ReadAll(*file)
 	if err != nil {
-		return UploadResponse{}, err
+		return nil, err
 	}
 
 	fileHash := generateFileHash(fileBytes)
@@ -81,7 +83,7 @@ func processUploadedFile(file *multipart.File, header *multipart.FileHeader) (Up
 	newFilename := fileHash + fileExt
 
 	if existingFile(fileHash, fileExt) {
-		return UploadResponse{
+		return &UploadResponse{
 			Success: true,
 			ID:      fileHash[:8],
 			Message: "File already exists",
@@ -89,13 +91,14 @@ func processUploadedFile(file *multipart.File, header *multipart.FileHeader) (Up
 		}, nil
 	}
 
-	if err := saveFile(fileBytes, newFilename); err != nil {
-		return UploadResponse{}, err
+	newID, err := saveFile(fileBytes, newFilename)
+	if err != nil {
+		return nil, err
 	}
 
-	return UploadResponse{
+	return &UploadResponse{
 		Success: true,
-		ID:      fileHash[:8],
+		ID:      newID,
 		Message: fmt.Sprintf("File %s uploaded successfully", header.Filename),
 		URL:     fmt.Sprintf("http://localhost:8080/image/%s", fileHash[:8]),
 	}, nil
@@ -132,13 +135,27 @@ func existingFile(fileHash, fileExt string) bool {
 	return err == nil
 }
 
-func saveFile(fileBytes []byte, filename string) error {
+func saveFile(fileBytes []byte, filename string) (string, error) {
+	newID := filename[:8]
+	// Write file name to db
+	err := db.Update(func(tx *bolt.Tx) error {
+		b := tx.Bucket([]byte("images"))
+		if b == nil {
+			return errors.New("DB 'images' not found")
+		}
+		err := b.Put([]byte(newID), []byte(filename))
+		return err
+	})
+	if err != nil {
+		return "", err
+	}
+
 	destination, err := os.Create(filepath.Join("assets", filename))
 	if err != nil {
-		return err
+		return "", err
 	}
 	defer destination.Close()
 
 	_, err = destination.Write(fileBytes)
-	return err
+	return newID, err
 }
