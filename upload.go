@@ -4,7 +4,6 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
 	"mime/multipart"
@@ -12,8 +11,6 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-
-	bolt "go.etcd.io/bbolt"
 )
 
 type UploadResponse struct {
@@ -137,19 +134,6 @@ func existingFile(fileHash, fileExt string) bool {
 
 func saveFile(fileBytes []byte, filename string) (string, error) {
 	newID := filename[:8]
-	// Write file name to db
-	err := db.Update(func(tx *bolt.Tx) error {
-		b := tx.Bucket([]byte("images"))
-		if b == nil {
-			return errors.New("DB 'images' not found")
-		}
-		err := b.Put([]byte(newID), []byte(filename))
-		return err
-	})
-	if err != nil {
-		return "", err
-	}
-
 	destination, err := os.Create(filepath.Join("assets", filename))
 	if err != nil {
 		return "", err
