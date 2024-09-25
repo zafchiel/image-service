@@ -21,8 +21,6 @@ type UploadResponse struct {
 	URL     string `json:"url"`
 }
 
-var maxUploadSize int64 = 10 << 20 // 10 MB
-
 func uploadImage(w http.ResponseWriter, r *http.Request) {
 	// Parse the multipart form data
 	err := r.ParseMultipartForm(maxUploadSize)
@@ -79,7 +77,8 @@ func processUploadedFile(file *multipart.File, header *multipart.FileHeader) (*U
 	fileExt := filepath.Ext(header.Filename)
 	newFilename := fileHash + fileExt
 
-	if existingFile(fileHash, fileExt) {
+	// Check if file already exists
+	if _, _, err := storage.Get(newFilename); err == nil {
 		return &UploadResponse{
 			Success: true,
 			ID:      fileHash[:8],
@@ -88,16 +87,18 @@ func processUploadedFile(file *multipart.File, header *multipart.FileHeader) (*U
 		}, nil
 	}
 
-	newID, err := saveFile(fileBytes, newFilename)
+	err = storage.Save(newFilename, *file)
 	if err != nil {
 		return nil, err
 	}
+
+	newID := fileHash[:8]
 
 	return &UploadResponse{
 		Success: true,
 		ID:      newID,
 		Message: fmt.Sprintf("File %s uploaded successfully", header.Filename),
-		URL:     fmt.Sprintf("http://localhost:8080/image/%s", fileHash[:8]),
+		URL:     fmt.Sprintf("http://localhost:8080/image/%s", newID),
 	}, nil
 }
 
@@ -125,11 +126,6 @@ func validateImage(header *multipart.FileHeader) error {
 func generateFileHash(fileBytes []byte) string {
 	hash := sha256.Sum256(fileBytes)
 	return hex.EncodeToString(hash[:])
-}
-
-func existingFile(fileHash, fileExt string) bool {
-	_, err := os.Stat(filepath.Join("assets", fileHash+fileExt))
-	return err == nil
 }
 
 func saveFile(fileBytes []byte, filename string) (string, error) {

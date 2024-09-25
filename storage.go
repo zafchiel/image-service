@@ -1,14 +1,15 @@
 package main
 
 import (
+	"image"
 	"io"
 	"os"
 	"path/filepath"
 )
 
 type Storage interface {
-	Save(filename string, file io.Reader) error
-	Get(filename string) (io.Reader, error)
+	Save(filename string, content io.Reader) error
+	Get(filename string) (image.Image, string, error)
 	Delete(filename string) error
 }
 
@@ -29,9 +30,13 @@ func (ls *LocalStorage) Save(filename string, content io.Reader) error {
 	return err
 }
 
-func (ls *LocalStorage) Get(filename string) (io.Reader, error) {
+func (ls *LocalStorage) Get(filename string) (image.Image, string, error) {
 	fullPath := filepath.Join(ls.root, filename)
-	return os.Open(fullPath)
+	file, err := os.Open(fullPath)
+	if err != nil {
+		return nil, "", err
+	}
+	return image.Decode(file)
 }
 
 func (ls *LocalStorage) Delete(filename string) error {

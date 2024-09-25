@@ -27,7 +27,8 @@ func getImage(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Find and open the image file
-	file, ext, err := findAndOpenImage(id)
+	file, format, err := findAndOpenImage(id)
+	// file, format, err := storage.Get(id)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -41,7 +42,7 @@ func getImage(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Determine output format and encode image
-	if err := encodeAndSendImage(w, img, r.URL.Query().Get("format"), ext); err != nil {
+	if err := encodeAndSendImage(w, img, r.URL.Query().Get("format"), format); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
@@ -65,6 +66,7 @@ func findAndOpenImage(id string) (image.Image, string, error) {
 		return nil, "", fmt.Errorf("multiple images found")
 	}
 
+	fmt.Println("Opening file:", files[0])
 	img, err := imgio.Open(files[0])
 	if err != nil {
 		return nil, "", fmt.Errorf("failed to open image: %w", err)

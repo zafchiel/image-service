@@ -18,6 +18,8 @@ const (
 )
 
 var supportedFormats = []ImageFormat{JPG, JPEG, PNG}
+var maxUploadSize int64 = 10 << 20 // 10 MB
+var storage Storage = &LocalStorage{root: "assets"}
 
 func main() {
 	router := http.NewServeMux()
