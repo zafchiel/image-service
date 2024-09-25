@@ -76,7 +76,13 @@ func findAndOpenImage(id string) (image.Image, string, error) {
 func applyImageTransformations(img image.Image, query url.Values) (image.Image, error) {
 	width, _ := strconv.Atoi(query.Get("width"))
 	height, _ := strconv.Atoi(query.Get("height"))
-	resized := transform.Resize(img, width, height, transform.Linear)
+	resized := img
+
+	if width == 0 || height == 0 {
+		resized = img
+	} else {
+		resized = transform.Resize(img, width, height, transform.Linear)
+	}
 
 	// Apply other transformations
 	if blurRadius, err := strconv.ParseFloat(query.Get("blur"), 64); err == nil && blurRadius > 0 {
