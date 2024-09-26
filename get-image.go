@@ -19,6 +19,10 @@ import (
 func getImage(w http.ResponseWriter, r *http.Request) {
 	// Validate image ID
 	id := r.PathValue("id")
+	if id == "" {
+		http.Error(w, "ID is required", http.StatusBadRequest)
+		return
+	}
 
 	var imageMetadata ImageMetadata
 	// Search for the image metadata in the database

@@ -62,6 +62,7 @@ func uploadImage(w http.ResponseWriter, r *http.Request) {
 
 	// Send response with all processed files
 	w.Header().Set("Content-Type", "application/json")
+	// TODO: return 200 only if all files are uploaded successfully
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(responses)
 

@@ -45,6 +45,7 @@ func main() {
 	router.HandleFunc("GET /", hello)
 	router.HandleFunc("POST /upload", uploadImage)
 	router.HandleFunc("GET /image/{id}", getImage)
+	router.HandleFunc("DELETE /image/{id}", deleteImageHandler)
 	router.Handle("GET /docs/", http.StripPrefix("/docs/", http.FileServer(http.Dir("docs"))))
 
 	mdStack := middleware.Stack(

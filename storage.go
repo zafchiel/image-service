@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"image"
 	"io"
 	"os"
@@ -22,6 +23,7 @@ type LocalStorage struct {
 
 func (ls *LocalStorage) Save(filename string, content io.Reader) error {
 	fullPath := filepath.Join(ls.root, filename)
+
 	file, err := os.Create(fullPath)
 	if err != nil {
 		return err
@@ -38,6 +40,9 @@ func (ls *LocalStorage) Get(filename string) (image.Image, error) {
 }
 
 func (ls *LocalStorage) Delete(filename string) error {
+	if filename == "" {
+		return fmt.Errorf("filename is required")
+	}
 	fullPath := filepath.Join(ls.root, filename)
 	return os.Remove(fullPath)
 }
