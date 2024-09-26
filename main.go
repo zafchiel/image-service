@@ -7,6 +7,8 @@ import (
 	"time"
 
 	"github.com/zafchiel/image-service/middleware"
+	"gorm.io/driver/sqlite"
+	"gorm.io/gorm"
 )
 
 type ImageFormat string
@@ -21,7 +23,24 @@ var supportedFormats = []ImageFormat{JPG, JPEG, PNG}
 var maxUploadSize int64 = 10 << 20 // 10 MB
 var storage Storage = &LocalStorage{root: "assets"}
 
+type ImageMetadata struct {
+	gorm.Model
+	Filename string
+	Format   string
+	Size     int64
+}
+
+var db *gorm.DB
+
 func main() {
+	var err error
+	db, err = gorm.Open(sqlite.Open("image.db"), &gorm.Config{})
+	if err != nil {
+		panic("failed to connect database")
+	}
+
+	db.AutoMigrate(&ImageMetadata{})
+
 	router := http.NewServeMux()
 	router.HandleFunc("GET /", hello)
 	router.HandleFunc("POST /upload", uploadImage)

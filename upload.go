@@ -87,10 +87,16 @@ func processUploadedFile(file *multipart.File, header *multipart.FileHeader) (*U
 		}, nil
 	}
 
+	// Save the file to the storage
 	err = storage.Save(newFilename, *file)
 	if err != nil {
 		return nil, err
 	}
+
+	// Save file metadata to the database
+	// result := db.Create(&ImageMetadata{
+
+	// })
 
 	newID := fileHash[:8]
 
