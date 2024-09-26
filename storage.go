@@ -5,11 +5,13 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+
+	"github.com/anthonynsimon/bild/imgio"
 )
 
 type Storage interface {
 	Save(filename string, content io.Reader) error
-	Get(filename string) (image.Image, string, error)
+	Get(filename string) (image.Image, error)
 	Delete(filename string) error
 }
 
@@ -30,13 +32,9 @@ func (ls *LocalStorage) Save(filename string, content io.Reader) error {
 	return err
 }
 
-func (ls *LocalStorage) Get(filename string) (image.Image, string, error) {
+func (ls *LocalStorage) Get(filename string) (image.Image, error) {
 	fullPath := filepath.Join(ls.root, filename)
-	file, err := os.Open(fullPath)
-	if err != nil {
-		return nil, "", err
-	}
-	return image.Decode(file)
+	return imgio.Open(fullPath)
 }
 
 func (ls *LocalStorage) Delete(filename string) error {

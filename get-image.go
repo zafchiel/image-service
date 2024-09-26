@@ -7,72 +7,46 @@ import (
 	"image/png"
 	"net/http"
 	"net/url"
-	"path/filepath"
 	"strconv"
 	"strings"
 
 	"github.com/anthonynsimon/bild/adjust"
 	"github.com/anthonynsimon/bild/blur"
 	"github.com/anthonynsimon/bild/effect"
-	"github.com/anthonynsimon/bild/imgio"
 	"github.com/anthonynsimon/bild/transform"
 )
 
 func getImage(w http.ResponseWriter, r *http.Request) {
 	// Validate image ID
 	id := r.PathValue("id")
-	if !isValidImageID(id) {
-		http.Error(w, "Invalid image ID", http.StatusBadRequest)
+
+	var imageMetadata ImageMetadata
+	// Search for the image metadata in the database
+	result := db.First(&imageMetadata, id)
+	if result.Error != nil {
+		http.Error(w, fmt.Sprintf("Image of ID %v not found", id), http.StatusNotFound)
 		return
 	}
 
-	// Find and open the image file
-	file, format, err := findAndOpenImage(id)
-	// file, format, err := storage.Get(id)
+	// Find and open the image image
+	image, err := storage.Get(imageMetadata.Filename)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
 	// Apply image transformations
-	img, err := applyImageTransformations(file, r.URL.Query())
+	img, err := applyImageTransformations(image, r.URL.Query())
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
 	// Determine output format and encode image
-	if err := encodeAndSendImage(w, img, r.URL.Query().Get("format"), format); err != nil {
+	if err := encodeAndSendImage(w, img, r.URL.Query().Get("format"), imageMetadata.Format); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-}
-
-func isValidImageID(id string) bool {
-	return len(id) == 8
-}
-
-func findAndOpenImage(id string) (image.Image, string, error) {
-	files, err := filepath.Glob("assets/" + id + "*")
-	if err != nil {
-		return nil, "", fmt.Errorf("failed to find file: %w", err)
-	}
-
-	if len(files) == 0 {
-		return nil, "", fmt.Errorf("image not found")
-	}
-
-	if len(files) > 1 {
-		return nil, "", fmt.Errorf("multiple images found")
-	}
-
-	fmt.Println("Opening file:", files[0])
-	img, err := imgio.Open(files[0])
-	if err != nil {
-		return nil, "", fmt.Errorf("failed to open image: %w", err)
-	}
-
-	return img, filepath.Ext(files[0]), nil
 }
 
 func applyImageTransformations(img image.Image, query url.Values) (image.Image, error) {
