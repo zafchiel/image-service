@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
@@ -97,7 +98,7 @@ func processUploadedFile(file *multipart.File, header *multipart.FileHeader) (*U
 	}
 
 	// Save the file to the storage
-	err = storage.Save(newFilename, *file)
+	err = storage.Save(newFilename, bytes.NewReader(fileBytes))
 	if err != nil {
 		return nil, err
 	}
