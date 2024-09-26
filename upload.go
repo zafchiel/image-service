@@ -4,6 +4,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"mime/multipart"
@@ -11,6 +12,8 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+
+	"gorm.io/gorm"
 )
 
 type UploadResponse struct {
@@ -77,20 +80,14 @@ func processUploadedFile(file *multipart.File, header *multipart.FileHeader) (*U
 	fileExt := filepath.Ext(header.Filename)
 	newFilename := fileHash + fileExt
 
-	// Check if file already exists
-	// if _, _, err := storage.Get(newFilename); err == nil {
-	// 	return &UploadResponse{
-	// 		Success: true,
-	// 		ID:      fileHash[:8],
-	// 		Message: "File already exists",
-	// 		URL:     fmt.Sprintf("http://localhost:8080/image/%s", fileHash[:8]),
-	// 	}, nil
-	// }
-
 	var existingFile ImageMetadata
 
+	// Check if file already exists
 	result := db.Where("filename = ?", newFilename).First(&existingFile)
-	if existingFile.ID != 0 {
+	if !errors.Is(result.Error, gorm.ErrRecordNotFound) {
+		return nil, errors.New("Something went wrong")
+	}
+	if result.RowsAffected > 0 {
 		return &UploadResponse{
 			Success: true,
 			ID:      existingFile.ID,
