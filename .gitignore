@@ -3,3 +3,4 @@ assets/*
 mock/
 tmp/
 build/
+*.db

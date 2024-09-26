@@ -16,7 +16,7 @@ import (
 type UploadResponse struct {
 	Success bool   `json:"success"`
 	Error   string `json:"error"`
-	ID      string `json:"id"`
+	ID      uint   `json:"id"`
 	Message string `json:"message"`
 	URL     string `json:"url"`
 }
@@ -78,12 +78,24 @@ func processUploadedFile(file *multipart.File, header *multipart.FileHeader) (*U
 	newFilename := fileHash + fileExt
 
 	// Check if file already exists
-	if _, _, err := storage.Get(newFilename); err == nil {
+	// if _, _, err := storage.Get(newFilename); err == nil {
+	// 	return &UploadResponse{
+	// 		Success: true,
+	// 		ID:      fileHash[:8],
+	// 		Message: "File already exists",
+	// 		URL:     fmt.Sprintf("http://localhost:8080/image/%s", fileHash[:8]),
+	// 	}, nil
+	// }
+
+	var existingFile ImageMetadata
+
+	result := db.Where("filename = ?", newFilename).First(&existingFile)
+	if existingFile.ID != 0 {
 		return &UploadResponse{
 			Success: true,
-			ID:      fileHash[:8],
+			ID:      existingFile.ID,
 			Message: "File already exists",
-			URL:     fmt.Sprintf("http://localhost:8080/image/%s", fileHash[:8]),
+			URL:     fmt.Sprintf("http://localhost:8080/image/%d", existingFile.ID),
 		}, nil
 	}
 
@@ -93,18 +105,22 @@ func processUploadedFile(file *multipart.File, header *multipart.FileHeader) (*U
 		return nil, err
 	}
 
+	newFile := ImageMetadata{
+		Filename: newFilename,
+		Format:   fileExt,
+		Size:     header.Size,
+	}
 	// Save file metadata to the database
-	// result := db.Create(&ImageMetadata{
-
-	// })
-
-	newID := fileHash[:8]
+	result = db.Create(&newFile)
+	if result.Error != nil {
+		return nil, result.Error
+	}
 
 	return &UploadResponse{
 		Success: true,
-		ID:      newID,
+		ID:      newFile.ID,
 		Message: fmt.Sprintf("File %s uploaded successfully", header.Filename),
-		URL:     fmt.Sprintf("http://localhost:8080/image/%s", newID),
+		URL:     fmt.Sprintf("http://localhost:8080/image/%d", newFile.ID),
 	}, nil
 }
 
