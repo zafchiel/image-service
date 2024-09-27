@@ -1,14 +1,12 @@
 package handlers
 
 import (
-	"fmt"
 	"image"
 	"image/jpeg"
 	"image/png"
 	"net/http"
 	"net/url"
 	"strconv"
-	"strings"
 
 	"github.com/anthonynsimon/bild/adjust"
 	"github.com/anthonynsimon/bild/blur"
@@ -119,22 +117,4 @@ func applyImageTransformations(img image.Image, query url.Values) (image.Image, 
 	}
 
 	return resized, nil
-}
-
-func encodeAndSendImage(w http.ResponseWriter, img image.Image, formatParam, defaultExt string) error {
-	format := ImageFormat(formatParam)
-	if format == "" {
-		format = ImageFormat(strings.TrimPrefix(defaultExt, "."))
-	}
-
-	switch format {
-	case JPG, JPEG:
-		w.Header().Set("Content-Type", "image/jpeg")
-		return jpeg.Encode(w, img, &jpeg.Options{Quality: 75})
-	case PNG:
-		w.Header().Set("Content-Type", "image/png")
-		return png.Encode(w, img)
-	default:
-		return fmt.Errorf("unsupported image format: %s, use one of the following formats: %v", format, supportedFormats)
-	}
 }

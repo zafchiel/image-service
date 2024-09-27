@@ -10,21 +10,19 @@ import (
 	"io"
 	"mime/multipart"
 	"net/http"
-	"os"
 	"path/filepath"
 	"strings"
 
 	"github.com/zafchiel/image-service/internal/models"
-	"github.com/zafchiel/image-service/internal/storage"
 	"gorm.io/gorm"
 )
 
 type UploadResponse struct {
 	Success bool   `json:"success"`
-	Error   string `json:"error"`
-	ID      uint   `json:"id"`
-	Message string `json:"message"`
-	URL     string `json:"url"`
+	Error   string `json:"error,omitempty"`
+	ID      uint   `json:"id,omitempty"`
+	Message string `json:"message,omitempty"`
+	URL     string `json:"url,omitempty"`
 }
 
 type UploadHandler struct {
@@ -36,73 +34,90 @@ func NewUploadHandler(app *App) *UploadHandler {
 }
 
 func (h *UploadHandler) Handle(w http.ResponseWriter, r *http.Request) {
-	// Limit the request body to maxUploadSize
-	r.Body = http.MaxBytesReader(w, r.Body, h.app.Config.MaxUploadSize)
-
-	// Parse the multipart form data
-	if err := r.ParseMultipartForm(h.app.Config.MaxUploadSize); err != nil {
-		http.Error(w, "Failed to parse multipart form", http.StatusBadRequest)
+	if err := h.validateRequest(r); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	defer r.MultipartForm.RemoveAll()
 
-	// Get the file headers for all uploaded files
 	files := r.MultipartForm.File["image"]
-	if len(files) == 0 {
-		http.Error(w, "No image files uploaded", http.StatusBadRequest)
-		return
-	}
+	responses := h.processFiles(files)
 
-	// Process each uploaded file
-	var responses []UploadResponse
-	for _, fileHeader := range files {
-		file, err := fileHeader.Open()
-		if err != nil {
-			http.Error(w, fmt.Sprintf("Failed to open file: %v", err), http.StatusInternalServerError)
-			return
-		}
-		defer file.Close()
-
-		// Process the file (validate, save, etc.)
-		response, err := processUploadedFile(&file, fileHeader, h.app.DB, h.app.Storage, h.app.Config.MaxUploadSize)
-		if err != nil {
-			responses = append(responses, UploadResponse{Success: false, Error: err.Error()})
-			continue
-		}
-
-		responses = append(responses, *response)
-	}
-
-	// Send response with all processed files
-	w.Header().Set("Content-Type", "application/json")
-	// TODO: return 200 only if all files are uploaded successfully
-	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(responses)
-
+	h.sendResponse(w, responses)
 }
 
-func processUploadedFile(file *multipart.File, header *multipart.FileHeader, db *gorm.DB, storage storage.Storage, maxUploadSize int64) (*UploadResponse, error) {
-	if err := validateImage(header, maxUploadSize); err != nil {
-		return nil, err
+func (h *UploadHandler) validateRequest(r *http.Request) error {
+	r.Body = http.MaxBytesReader(nil, r.Body, h.app.Config.MaxUploadSize)
+
+	if err := r.ParseMultipartForm(h.app.Config.MaxUploadSize); err != nil {
+		return fmt.Errorf("failed to parse multipart form: %w", err)
 	}
 
-	fileBytes, err := io.ReadAll(*file)
+	if len(r.MultipartForm.File["image"]) == 0 {
+		return errors.New("no image uploaded")
+	}
+
+	return nil
+}
+
+func (h *UploadHandler) processFiles(files []*multipart.FileHeader) []UploadResponse {
+	responses := make([]UploadResponse, 0, len(files))
+	for _, fileHeader := range files {
+		response := h.processFile(fileHeader)
+		responses = append(responses, response)
+	}
+	return responses
+}
+
+func (h *UploadHandler) processFile(fileHeader *multipart.FileHeader) UploadResponse {
+	file, err := fileHeader.Open()
 	if err != nil {
-		return nil, err
+		return UploadResponse{Success: false, Error: fmt.Sprintf("Failed to open file: %v", err)}
+	}
+	defer file.Close()
+
+	response, err := processUploadedFile(file, fileHeader, h.app)
+	if err != nil {
+		return UploadResponse{Success: false, Error: err.Error()}
+	}
+
+	return *response
+}
+
+func (h *UploadHandler) sendResponse(w http.ResponseWriter, responses []UploadResponse) {
+	w.Header().Set("Content-Type", "application/json")
+	statusCode := h.determineStatusCode(responses)
+	w.WriteHeader(statusCode)
+	json.NewEncoder(w).Encode(responses)
+}
+
+func (h *UploadHandler) determineStatusCode(responses []UploadResponse) int {
+	for _, response := range responses {
+		if !response.Success {
+			return http.StatusBadRequest
+		}
+	}
+	return http.StatusOK
+}
+
+func processUploadedFile(file multipart.File, header *multipart.FileHeader, app *App) (*UploadResponse, error) {
+	if err := validateImage(header, app.Config.MaxUploadSize); err != nil {
+		return &UploadResponse{Success: false, Error: err.Error()}, nil
+	}
+
+	fileBytes, err := io.ReadAll(file)
+	if err != nil {
+		return &UploadResponse{Success: false, Error: "Failed to read file"}, nil
 	}
 
 	fileHash := generateFileHash(fileBytes)
 	fileExt := filepath.Ext(header.Filename)
 	newFilename := fileHash + fileExt
 
-	var existingFile models.ImageMetadata
-
-	// Check if file already exists
-	result := db.Where("filename = ?", newFilename).First(&existingFile)
-	if !errors.Is(result.Error, gorm.ErrRecordNotFound) {
-		return nil, errors.New("Something went wrong")
+	existingFile, err := checkExistingFile(app.DB, newFilename)
+	if err != nil {
+		return &UploadResponse{Success: false, Error: "Database error"}, nil
 	}
-	if result.RowsAffected > 0 {
+	if existingFile != nil {
 		return &UploadResponse{
 			Success: true,
 			ID:      existingFile.ID,
@@ -111,21 +126,17 @@ func processUploadedFile(file *multipart.File, header *multipart.FileHeader, db 
 		}, nil
 	}
 
-	// Save the file to the storage
-	err = storage.Save(newFilename, bytes.NewReader(fileBytes))
-	if err != nil {
-		return nil, err
+	if err := app.Storage.Save(newFilename, bytes.NewReader(fileBytes)); err != nil {
+		return &UploadResponse{Success: false, Error: "Failed to save file"}, nil
 	}
 
 	newFile := models.ImageMetadata{
 		Filename: newFilename,
-		Format:   fileExt,
+		Format:   fileExt[1:], // Remove the leading dot
 		Size:     header.Size,
 	}
-	// Save file metadata to the database
-	result = db.Create(&newFile)
-	if result.Error != nil {
-		return nil, result.Error
+	if err := app.DB.Create(&newFile).Error; err != nil {
+		return &UploadResponse{Success: false, Error: "Failed to save file metadata"}, nil
 	}
 
 	return &UploadResponse{
@@ -141,20 +152,21 @@ func validateImage(header *multipart.FileHeader, maxUploadSize int64) error {
 		return fmt.Errorf("the uploaded image is too big: %v. Please upload an image up to %v", header.Size, maxUploadSize)
 	}
 
-	contentType := ImageFormat(strings.Split(header.Header.Get("Content-Type"), "/")[1])
-	var format ImageFormat
-	for _, f := range supportedFormats {
-		if f == contentType {
-			format = f
-			break
-		}
-	}
-
-	if format == "" {
+	contentType := strings.Split(header.Header.Get("Content-Type"), "/")[1]
+	if !isSupportedFormat(contentType) {
 		return fmt.Errorf("unsupported image format: %s, upload one of the following: %v", contentType, supportedFormats)
 	}
 
 	return nil
+}
+
+func isSupportedFormat(format string) bool {
+	for _, f := range supportedFormats {
+		if string(f) == format {
+			return true
+		}
+	}
+	return false
 }
 
 func generateFileHash(fileBytes []byte) string {
@@ -162,14 +174,14 @@ func generateFileHash(fileBytes []byte) string {
 	return hex.EncodeToString(hash[:])
 }
 
-func saveFile(fileBytes []byte, filename string) (string, error) {
-	newID := filename[:8]
-	destination, err := os.Create(filepath.Join("assets", filename))
-	if err != nil {
-		return "", err
+func checkExistingFile(db *gorm.DB, filename string) (*models.ImageMetadata, error) {
+	var existingFile models.ImageMetadata
+	result := db.Where("filename = ?", filename).First(&existingFile)
+	if result.Error != nil {
+		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
+			return nil, nil
+		}
+		return nil, result.Error
 	}
-	defer destination.Close()
-
-	_, err = destination.Write(fileBytes)
-	return newID, err
+	return &existingFile, nil
 }
