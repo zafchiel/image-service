@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 
+	"github.com/zafchiel/image-service/models"
 	"gorm.io/gorm/clause"
 )
 
@@ -14,7 +15,7 @@ func deleteImageHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var imageMetadata ImageMetadata
+	var imageMetadata models.ImageMetadata
 	result := db.Clauses(clause.Returning{}).Delete(&imageMetadata, id)
 	if result.Error != nil {
 		http.Error(w, result.Error.Error(), http.StatusInternalServerError)

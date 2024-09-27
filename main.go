@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/zafchiel/image-service/middleware"
+	"github.com/zafchiel/image-service/models"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 )
@@ -23,13 +24,6 @@ var supportedFormats = []ImageFormat{JPG, JPEG, PNG}
 var maxUploadSize int64 = 10 << 20 // 10 MB
 var storage Storage = &LocalStorage{root: "assets"}
 
-type ImageMetadata struct {
-	gorm.Model
-	Filename string
-	Format   string
-	Size     int64
-}
-
 var db *gorm.DB
 
 func main() {
@@ -39,7 +33,8 @@ func main() {
 		panic("failed to connect database")
 	}
 
-	db.AutoMigrate(&ImageMetadata{})
+	db.AutoMigrate(&models.ImageMetadata{})
+	db.AutoMigrate(&models.User{})
 
 	router := http.NewServeMux()
 	router.HandleFunc("GET /ping", hello)

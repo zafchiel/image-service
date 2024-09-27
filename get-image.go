@@ -14,6 +14,7 @@ import (
 	"github.com/anthonynsimon/bild/blur"
 	"github.com/anthonynsimon/bild/effect"
 	"github.com/anthonynsimon/bild/transform"
+	"github.com/zafchiel/image-service/models"
 )
 
 func getImage(w http.ResponseWriter, r *http.Request) {
@@ -24,7 +25,7 @@ func getImage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var imageMetadata ImageMetadata
+	var imageMetadata models.ImageMetadata
 	// Search for the image metadata in the database
 	result := db.First(&imageMetadata, id)
 	if result.Error != nil {

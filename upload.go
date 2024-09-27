@@ -14,6 +14,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/zafchiel/image-service/models"
 	"gorm.io/gorm"
 )
 
@@ -85,7 +86,7 @@ func processUploadedFile(file *multipart.File, header *multipart.FileHeader) (*U
 	fileExt := filepath.Ext(header.Filename)
 	newFilename := fileHash + fileExt
 
-	var existingFile ImageMetadata
+	var existingFile models.ImageMetadata
 
 	// Check if file already exists
 	result := db.Where("filename = ?", newFilename).First(&existingFile)
@@ -107,7 +108,7 @@ func processUploadedFile(file *multipart.File, header *multipart.FileHeader) (*U
 		return nil, err
 	}
 
-	newFile := ImageMetadata{
+	newFile := models.ImageMetadata{
 		Filename: newFilename,
 		Format:   fileExt,
 		Size:     header.Size,
