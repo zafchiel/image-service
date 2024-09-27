@@ -1,4 +1,4 @@
-package main
+package storage
 
 import (
 	"fmt"
@@ -19,6 +19,10 @@ type Storage interface {
 type LocalStorage struct {
 	// Base path to store the files
 	root string
+}
+
+func NewLocalStorage(root string) *LocalStorage {
+	return &LocalStorage{root: root}
 }
 
 func (ls *LocalStorage) Save(filename string, content io.Reader) error {

@@ -1,4 +1,4 @@
-package main
+package handlers
 
 import (
 	"fmt"
@@ -14,43 +14,59 @@ import (
 	"github.com/anthonynsimon/bild/blur"
 	"github.com/anthonynsimon/bild/effect"
 	"github.com/anthonynsimon/bild/transform"
-	"github.com/zafchiel/image-service/models"
+	"github.com/zafchiel/image-service/internal/errors"
+	"github.com/zafchiel/image-service/internal/models"
 )
 
-func getImage(w http.ResponseWriter, r *http.Request) {
-	// Validate image ID
+type ImageFormat string
+
+const (
+	JPG  ImageFormat = "jpg"
+	JPEG ImageFormat = "jpeg"
+	PNG  ImageFormat = "png"
+)
+
+var supportedFormats = []ImageFormat{JPG, JPEG, PNG}
+
+type GetImageHandler struct {
+	app *App
+}
+
+func NewGetImageHandler(app *App) *GetImageHandler {
+	return &GetImageHandler{app: app}
+}
+
+func (h *GetImageHandler) Handle(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
 	if id == "" {
-		http.Error(w, "ID is required", http.StatusBadRequest)
+		http.Error(w, errors.ErrInvalidID.Error(), http.StatusBadRequest)
 		return
 	}
 
 	var imageMetadata models.ImageMetadata
-	// Search for the image metadata in the database
-	result := db.First(&imageMetadata, id)
+	result := h.app.DB.First(&imageMetadata, id)
 	if result.Error != nil {
-		http.Error(w, fmt.Sprintf("Image of ID %v not found", id), http.StatusNotFound)
+		http.Error(w, errors.ErrImageNotFound.Error(), http.StatusNotFound)
 		return
 	}
 
-	// Find and open the image image
-	image, err := storage.Get(imageMetadata.Filename)
+	image, err := h.app.Storage.Get(imageMetadata.Filename)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
-	// Apply image transformations
 	img, err := applyImageTransformations(image, r.URL.Query())
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
-	// Determine output format and encode image
-	if err := encodeAndSendImage(w, img, r.URL.Query().Get("format"), imageMetadata.Format); err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
+	w.Header().Set("Content-Type", "image/"+imageMetadata.Format)
+	if imageMetadata.Format == "png" {
+		png.Encode(w, img)
+	} else {
+		jpeg.Encode(w, img, nil)
 	}
 }
 

@@ -1,6 +1,9 @@
 package models
 
 import (
+	"errors"
+	"fmt"
+
 	"golang.org/x/crypto/bcrypt"
 	"gorm.io/gorm"
 )
@@ -17,23 +20,39 @@ type UserModel struct {
 	DB *gorm.DB
 }
 
-func (um *UserModel) InsertUser(email, username, password string) error {
-	hp, err := bcrypt.GenerateFromPassword([]byte(password), 12)
-	if err != nil {
-		return err
+var (
+	ErrEmailInUse = errors.New("email already in use")
+)
+
+func NewUserModel(db *gorm.DB) *UserModel {
+	return &UserModel{DB: db}
+}
+
+func (um *UserModel) InsertUser(email, username, password string) (*User, error) {
+	var user User
+	// Check if the email is already in use
+	res := um.DB.Where("email = ?", email).First(&user)
+	if res.RowsAffected > 0 {
+		return nil, ErrEmailInUse
 	}
 
-	res := um.DB.Create(&User{
+	hp, err := bcrypt.GenerateFromPassword([]byte(password), 12)
+	if err != nil {
+		return nil, err
+	}
+
+	user = User{
 		Username: username,
 		Password: string(hp),
 		Email:    email,
-	})
-
+	}
+	res = um.DB.Create(&user)
 	if res.Error != nil {
-		return res.Error
+		fmt.Println(res.Error.Error())
+		return nil, res.Error
 	}
 
-	return nil
+	return &user, nil
 }
 
 func (um *UserModel) LoginUser(email, hashedPassword string) (*User, error) {

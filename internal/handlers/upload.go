@@ -1,4 +1,4 @@
-package main
+package handlers
 
 import (
 	"bytes"
@@ -14,7 +14,8 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/zafchiel/image-service/models"
+	"github.com/zafchiel/image-service/internal/models"
+	"github.com/zafchiel/image-service/internal/storage"
 	"gorm.io/gorm"
 )
 
@@ -26,12 +27,20 @@ type UploadResponse struct {
 	URL     string `json:"url"`
 }
 
-func uploadImage(w http.ResponseWriter, r *http.Request) {
+type UploadHandler struct {
+	app *App
+}
+
+func NewUploadHandler(app *App) *UploadHandler {
+	return &UploadHandler{app: app}
+}
+
+func (h *UploadHandler) Handle(w http.ResponseWriter, r *http.Request) {
 	// Limit the request body to maxUploadSize
-	r.Body = http.MaxBytesReader(w, r.Body, maxUploadSize)
+	r.Body = http.MaxBytesReader(w, r.Body, h.app.Config.MaxUploadSize)
 
 	// Parse the multipart form data
-	if err := r.ParseMultipartForm(maxUploadSize); err != nil {
+	if err := r.ParseMultipartForm(h.app.Config.MaxUploadSize); err != nil {
 		http.Error(w, "Failed to parse multipart form", http.StatusBadRequest)
 		return
 	}
@@ -55,7 +64,7 @@ func uploadImage(w http.ResponseWriter, r *http.Request) {
 		defer file.Close()
 
 		// Process the file (validate, save, etc.)
-		response, err := processUploadedFile(&file, fileHeader)
+		response, err := processUploadedFile(&file, fileHeader, h.app.DB, h.app.Storage, h.app.Config.MaxUploadSize)
 		if err != nil {
 			responses = append(responses, UploadResponse{Success: false, Error: err.Error()})
 			continue
@@ -72,8 +81,8 @@ func uploadImage(w http.ResponseWriter, r *http.Request) {
 
 }
 
-func processUploadedFile(file *multipart.File, header *multipart.FileHeader) (*UploadResponse, error) {
-	if err := validateImage(header); err != nil {
+func processUploadedFile(file *multipart.File, header *multipart.FileHeader, db *gorm.DB, storage storage.Storage, maxUploadSize int64) (*UploadResponse, error) {
+	if err := validateImage(header, maxUploadSize); err != nil {
 		return nil, err
 	}
 
@@ -127,7 +136,7 @@ func processUploadedFile(file *multipart.File, header *multipart.FileHeader) (*U
 	}, nil
 }
 
-func validateImage(header *multipart.FileHeader) error {
+func validateImage(header *multipart.FileHeader, maxUploadSize int64) error {
 	if header.Size > maxUploadSize {
 		return fmt.Errorf("the uploaded image is too big: %v. Please upload an image up to %v", header.Size, maxUploadSize)
 	}
