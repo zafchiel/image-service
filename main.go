@@ -17,7 +17,7 @@ func main() {
 
 	db, err := gorm.Open(sqlite.Open(cfg.DBPath), &gorm.Config{})
 	if err != nil {
-		panic("failed to connect database")
+		panic("failed to connect database: " + err.Error())
 	}
 
 	app := &handlers.App{
@@ -26,7 +26,9 @@ func main() {
 		Config:  cfg,
 	}
 
-	db.AutoMigrate(&models.ImageMetadata{}, &models.User{})
+	if err := db.AutoMigrate(&models.ImageMetadata{}, &models.User{}); err != nil {
+		panic("failed to run auto migrations: " + err.Error())
+	}
 
 	server := http.Server{
 		Addr:    cfg.ServerAddress,
@@ -35,6 +37,6 @@ func main() {
 
 	fmt.Println("Server is running on", cfg.ServerAddress)
 	if err := server.ListenAndServe(); err != nil {
-		fmt.Println("Error starting server:", err)
+		panic("failed to start server: " + err.Error())
 	}
 }
