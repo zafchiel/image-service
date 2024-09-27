@@ -24,6 +24,10 @@ type LocalStorage struct {
 func (ls *LocalStorage) Save(filename string, content io.Reader) error {
 	fullPath := filepath.Join(ls.root, filename)
 
+	if err := os.MkdirAll(filepath.Dir(fullPath), os.ModePerm); err != nil {
+		return err
+	}
+
 	file, err := os.Create(fullPath)
 	if err != nil {
 		return err

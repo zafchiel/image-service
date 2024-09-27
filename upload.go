@@ -26,12 +26,15 @@ type UploadResponse struct {
 }
 
 func uploadImage(w http.ResponseWriter, r *http.Request) {
+	// Limit the request body to maxUploadSize
+	r.Body = http.MaxBytesReader(w, r.Body, maxUploadSize)
+
 	// Parse the multipart form data
-	err := r.ParseMultipartForm(maxUploadSize)
-	if err != nil {
+	if err := r.ParseMultipartForm(maxUploadSize); err != nil {
 		http.Error(w, "Failed to parse multipart form", http.StatusBadRequest)
 		return
 	}
+	defer r.MultipartForm.RemoveAll()
 
 	// Get the file headers for all uploaded files
 	files := r.MultipartForm.File["image"]

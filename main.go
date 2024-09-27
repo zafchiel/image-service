@@ -42,7 +42,7 @@ func main() {
 	db.AutoMigrate(&ImageMetadata{})
 
 	router := http.NewServeMux()
-	router.HandleFunc("GET /", hello)
+	router.HandleFunc("GET /ping", hello)
 	router.HandleFunc("POST /upload", uploadImage)
 	router.HandleFunc("GET /image/{id}", getImage)
 	router.HandleFunc("DELETE /image/{id}", deleteImageHandler)
