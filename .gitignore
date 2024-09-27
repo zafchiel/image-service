@@ -4,3 +4,8 @@ mock/
 tmp/
 build/
 *.db
+.vscode/
+.idea/
+*.log
+.env
+.env.*
