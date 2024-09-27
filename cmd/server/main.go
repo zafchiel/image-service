@@ -3,11 +3,9 @@ package main
 import (
 	"fmt"
 	"net/http"
-	"time"
 
 	"github.com/zafchiel/image-service/internal/config"
 	"github.com/zafchiel/image-service/internal/handlers"
-	"github.com/zafchiel/image-service/internal/middleware"
 	"github.com/zafchiel/image-service/internal/models"
 	"github.com/zafchiel/image-service/internal/storage"
 	"gorm.io/driver/sqlite"
@@ -30,22 +28,9 @@ func main() {
 
 	db.AutoMigrate(&models.ImageMetadata{}, &models.User{})
 
-	router := http.NewServeMux()
-	router.HandleFunc("POST /upload", handlers.NewUploadHandler(app).Handle)
-	router.HandleFunc("GET /image/{id}", handlers.NewGetImageHandler(app).Handle)
-	router.HandleFunc("DELETE /image/{id}", handlers.NewDeleteImageHandler(app).Handle)
-	router.HandleFunc("POST /register", handlers.NewRegisterHandler(app).Handle)
-
-	router.Handle("GET /docs/", http.StripPrefix("/docs/", http.FileServer(http.Dir("docs"))))
-
-	mdStack := middleware.Stack(
-		middleware.Logger,
-		middleware.NewRateLimiter(10, time.Second*10).Limit,
-	)
-
 	server := http.Server{
 		Addr:    cfg.ServerAddress,
-		Handler: mdStack(router),
+		Handler: handlers.CreateRouter(app),
 	}
 
 	fmt.Println("Server is running on", cfg.ServerAddress)
