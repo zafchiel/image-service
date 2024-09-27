@@ -11,7 +11,7 @@ type Config struct {
 
 func Load() *Config {
 	return &Config{
-		DBPath:        getEnv("DB_PATH", "image.db"),
+		DBPath:        getEnv("DB_PATH", "sqlite.db"),
 		StoragePath:   getEnv("STORAGE_PATH", "assets"),
 		ServerAddress: getEnv("SERVER_ADDRESS", ":8080"),
 		MaxUploadSize: 10 << 20, // 10 MB
