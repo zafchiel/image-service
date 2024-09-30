@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"strconv"
+	"strings"
 
 	"github.com/zafchiel/image-service/internal/errors"
 	"github.com/zafchiel/image-service/internal/models"
@@ -24,6 +25,17 @@ type registerRequestBody struct {
 }
 
 func (h *RegisterHandler) Handle(w http.ResponseWriter, r *http.Request) {
+	ct := r.Header.Get("Content-Type")
+	if ct != "" {
+		mimeType := strings.ToLower(strings.TrimSpace(strings.Split(ct, ";")[0]))
+		if mimeType != "application/json" {
+			http.Error(w, "Content-Type header must be application/json", http.StatusUnsupportedMediaType)
+			return
+		}
+	}
+
+	r.Body = http.MaxBytesReader(w, r.Body, 1<<20)
+
 	var body registerRequestBody
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 		http.Error(w, "Invalid request body", http.StatusBadRequest)
