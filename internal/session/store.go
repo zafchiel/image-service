@@ -9,5 +9,10 @@ var Store sessions.Store
 const Key = "AUTH_SESSION_KEY"
 
 func InitStore(secret string) {
-	Store = sessions.NewCookieStore([]byte(secret))
+	store := sessions.NewCookieStore([]byte(secret))
+	store.Options = &sessions.Options{
+		HttpOnly: true,
+	}
+
+	Store = store
 }
