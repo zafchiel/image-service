@@ -17,23 +17,27 @@ func NewRegisterHandler(app *App) *RegisterHandler {
 	return &RegisterHandler{app: app}
 }
 
+type registerRequestBody struct {
+	Username string
+	Email    string
+	Password string
+}
+
 func (h *RegisterHandler) Handle(w http.ResponseWriter, r *http.Request) {
-	if err := r.ParseForm(); err != nil {
-		http.Error(w, "Failed to parse form", http.StatusInternalServerError)
+	var body registerRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		http.Error(w, "Invalid request body", http.StatusBadRequest)
 		return
 	}
+	defer r.Body.Close()
 
-	email := r.FormValue("email")
-	username := r.FormValue("username")
-	password := r.FormValue("password")
-
-	if email == "" || username == "" || password == "" {
-		http.Error(w, "All fields are required", http.StatusBadRequest)
+	if body.Email == "" || body.Username == "" || body.Password == "" {
+		http.Error(w, "All fields are required: username, email, password", http.StatusBadRequest)
 		return
 	}
 
 	um := models.UserModel{DB: h.app.DB}
-	newUser, err := um.InsertUser(email, username, password)
+	newUser, err := um.InsertUser(body.Email, body.Username, body.Password)
 	if err != nil {
 		if err == errors.ErrEmailInUse {
 			http.Error(w, "Email already in use", http.StatusConflict)

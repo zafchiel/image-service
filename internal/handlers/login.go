@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"encoding/json"
 	"net/http"
 
 	"github.com/zafchiel/image-service/internal/middleware"
@@ -15,21 +16,25 @@ func NewLoginHandler(app *App) *LoginHandler {
 	return &LoginHandler{app: app}
 }
 
+type loginRequestBody struct {
+	Email    string
+	Password string
+}
+
 func (h *LoginHandler) Handle(w http.ResponseWriter, r *http.Request) {
-	if err := r.ParseForm(); err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+	var body loginRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		return
 	}
 
-	email := r.FormValue("email")
-	password := r.FormValue("password")
-
-	if email == "" || password == "" {
+	if body.Email == "" || body.Password == "" {
 		http.Error(w, "Email and password are required", http.StatusBadRequest)
 		return
 	}
 
 	um := models.NewUserModel(h.app.DB)
-	user, err := um.LoginUser(email, password)
+	user, err := um.LoginUser(body.Email, body.Password)
 	if err != nil {
 		http.Error(w, "Invalid email or password", http.StatusBadRequest)
 		return
