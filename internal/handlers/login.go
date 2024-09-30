@@ -7,6 +7,7 @@ import (
 
 	"github.com/zafchiel/image-service/internal/middleware"
 	"github.com/zafchiel/image-service/internal/models"
+	"github.com/zafchiel/image-service/internal/session"
 )
 
 type LoginHandler struct {
@@ -52,7 +53,7 @@ func (h *LoginHandler) Handle(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	session, _ := middleware.AuthStore.Get(r, middleware.ASKey)
+	session, _ := session.Store.Get(r, middleware.ASKey)
 
 	session.Values["user_id"] = user.ID
 

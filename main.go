@@ -7,6 +7,7 @@ import (
 	"github.com/zafchiel/image-service/internal/config"
 	"github.com/zafchiel/image-service/internal/handlers"
 	"github.com/zafchiel/image-service/internal/models"
+	"github.com/zafchiel/image-service/internal/session"
 	"github.com/zafchiel/image-service/internal/storage"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
@@ -19,6 +20,8 @@ func main() {
 	if err != nil {
 		panic("failed to connect database: " + err.Error())
 	}
+
+	session.InitStore(cfg.SessionSecrectKey)
 
 	app := &handlers.App{
 		DB:      db,
