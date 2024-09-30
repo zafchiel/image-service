@@ -55,14 +55,14 @@ func (um *UserModel) InsertUser(email, username, password string) (*User, error)
 	return &user, nil
 }
 
-func (um *UserModel) LoginUser(email, hashedPassword string) (*User, error) {
+func (um *UserModel) LoginUser(email, password string) (*User, error) {
 	var user User
 	res := um.DB.Where("email = ?", email).First(&user)
 	if res.Error != nil {
 		return nil, res.Error
 	}
 
-	err := bcrypt.CompareHashAndPassword([]byte(hashedPassword), []byte(user.Password))
+	err := bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(password))
 	if err != nil {
 		return nil, err
 	}

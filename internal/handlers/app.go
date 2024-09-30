@@ -19,9 +19,14 @@ type App struct {
 func CreateRouter(app *App) http.Handler {
 	router := http.NewServeMux()
 	router.HandleFunc("POST /upload", NewUploadHandler(app).Handle)
-	router.HandleFunc("GET /image/{id}", NewGetImageHandler(app).Handle)
+	router.Handle("GET /image/{id}",
+		middleware.AuthGuard(
+			http.HandlerFunc(NewGetImageHandler(app).Handle),
+		),
+	)
 	router.HandleFunc("DELETE /image/{id}", NewDeleteImageHandler(app).Handle)
 	router.HandleFunc("POST /register", NewRegisterHandler(app).Handle)
+	router.HandleFunc("POST /login", NewLoginHandler(app).Handle)
 
 	router.Handle("GET /docs/", http.StripPrefix("/docs/", http.FileServer(http.Dir("docs"))))
 
