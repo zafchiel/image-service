@@ -18,13 +18,21 @@ type App struct {
 
 func CreateRouter(app *App) http.Handler {
 	router := http.NewServeMux()
-	router.HandleFunc("POST /upload", NewUploadHandler(app).Handle)
+	router.Handle("POST /upload",
+		middleware.AuthGuard(
+			http.HandlerFunc(NewUploadHandler(app).Handle),
+		),
+	)
 	router.Handle("GET /image/{id}",
 		middleware.AuthGuard(
 			http.HandlerFunc(NewGetImageHandler(app).Handle),
 		),
 	)
-	router.HandleFunc("DELETE /image/{id}", NewDeleteImageHandler(app).Handle)
+	router.Handle("DELETE /image/{id}",
+		middleware.AuthGuard(
+			http.HandlerFunc(NewDeleteImageHandler(app).Handle),
+		),
+	)
 	router.HandleFunc("POST /register", NewRegisterHandler(app).Handle)
 	router.HandleFunc("POST /login", NewLoginHandler(app).Handle)
 
