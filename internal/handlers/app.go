@@ -4,6 +4,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/rs/cors"
 	"github.com/zafchiel/image-service/internal/config"
 	"github.com/zafchiel/image-service/internal/middleware"
 	"github.com/zafchiel/image-service/internal/storage"
@@ -38,9 +39,16 @@ func CreateRouter(app *App) http.Handler {
 
 	router.Handle("GET /docs/", http.StripPrefix("/docs/", http.FileServer(http.Dir("docs"))))
 
+	corsHandler := cors.New(cors.Options{
+		AllowedOrigins: []string{"*"},
+		AllowedMethods: []string{"GET", "POST", "DELETE"},
+		AllowedHeaders: []string{"Content-Type"},
+	})
+
 	mdStack := middleware.Stack(
 		middleware.Logger,
 		middleware.NewRateLimiter(10, time.Second*10).Limit,
+		corsHandler.Handler,
 	)
 
 	return mdStack(router)
