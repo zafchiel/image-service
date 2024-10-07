@@ -31,7 +31,7 @@ func NewUserModel(db *gorm.DB) *UserModel {
 func (um *UserModel) InsertUser(email, username, password string) (*User, error) {
 	var user User
 	// Check if the email is already in use
-	res := um.DB.Where("email = ?", email).First(&user)
+	res := um.DB.Where("email = ?", email).Limit(1).Find(&user)
 	if res.RowsAffected > 0 {
 		return nil, ErrEmailInUse
 	}
