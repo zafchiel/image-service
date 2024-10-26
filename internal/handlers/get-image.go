@@ -69,8 +69,8 @@ func (h *GetImageHandler) Handle(w http.ResponseWriter, r *http.Request) {
 }
 
 func applyImageTransformations(img image.Image, query url.Values) (image.Image, error) {
-	width, _ := strconv.Atoi(query.Get("width"))
-	height, _ := strconv.Atoi(query.Get("height"))
+	width, _ := strconv.Atoi(query.Get("w"))
+	height, _ := strconv.Atoi(query.Get("h"))
 	resized := img
 
 	if width == 0 || height == 0 {
